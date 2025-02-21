@@ -4,13 +4,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 import sys
-sys.path.append("PATH")
+sys.path.append("C:/Users/jgmea/research/transf/TransformerJM/")
 from Models.Transformer.TransformerJM import Transformer
 from Models.Transformer.functions import (get_tensors, get_mask, init_weights, get_std_opt)
 from Models.Transformer.loss import (long_loss, surv_loss)
 from Models.metrics import (AUC, Brier, MSE)
 from Simulation.data_simulation_base import simulate_JM_base
-from Simulation.data_simulation_nonPH import simulate_JM_nonPH
+# from Simulation.data_simulation_nonPH import simulate_JM_nonPH
 
 import numpy as np
 import pandas as pd
@@ -168,6 +168,16 @@ for i_sim in range(n_sim):
         long_pred = long_pred.detach().numpy()
         surv_pred = surv_pred.squeeze().detach().numpy()
         surv_pred = surv_pred.cumprod(axis=1)
+
+        print("surv_pred shape:", surv_pred.shape)
+        print("e_tmp:", e_tmp)
+        print("t_tmp:", t_tmp)
+        print("pred_times:", pred_times)
+        print("NaN in surv_pred:", np.isnan(surv_pred).any())
+        print("NaN in e_tmp:", np.isnan(e_tmp).any())
+        print("NaN in t_tmp:", np.isnan(t_tmp).any())
+        print("NaN in pred_times:", np.isnan(pred_times).any())
+
 
         auc, iauc = AUC(surv_pred, e_tmp.numpy(), t_tmp.numpy(), np.array(pred_times))
         AUC_array[i_sim, LT_index, :] = auc

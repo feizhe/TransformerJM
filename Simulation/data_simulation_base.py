@@ -101,6 +101,9 @@ def simulate_JM_base(I, obstime, miss_rate=0.1, opt="none", seed=None):
     true_prob = true_prob.flatten()
     ID = np.repeat(range(0,I), repeats=J)
     visit = np.tile(range(0,J), reps=I)
+    print(X)
+    print(Y_pred[:,2])
+    print(Y_pred.shape)
     data = pd.DataFrame({"id":ID, "visit":visit, "obstime":subj_obstime, "predtime":pred_time,
                         "time":np.repeat(time,repeats=J),
                         "event":np.repeat(event,repeats=J),
@@ -108,8 +111,10 @@ def simulate_JM_base(I, obstime, miss_rate=0.1, opt="none", seed=None):
                         "X1":np.repeat(base[:,0],repeats=J),
                         "X2":np.repeat(base[:,1],repeats=J),
                         "pred_Y1":Y_pred[:,0],"pred_Y2":Y_pred[:,1],
-                        "pred_Y3":Y_pred[:,2],"true":true_prob})
+                        "pred_Y3":Y_pred[:,2],"true":true_prob,
+                        "X_long1":np.repeat(X,repeats=J),})
     
     
     return data
     
+simulate_JM_base(10, [1,2,3,4,5,6,7,8,9,10],seed=1).head()
