@@ -42,6 +42,22 @@ data_all = simulate_JM_base(I=I, obstime=obstime, opt=scenario, seed=n_sim)
 data = data_all[data_all.obstime <= data_all.time]
 data.iloc[:, :6].head(40)
 
+data['time'] += 0.1 # survival time greater than last obstime, model can still run
+
+data['time'] -= 0.2 # survival time greater than last obstime, model can still run
+
+"""
+Using data simulated from R
+I = 5000
+
+data = pd.read_csv("Test/r_data.csv")
+
+data.iloc[:, :6].head(20)
+data.shape
+
+data['time'] += 0.1 
+"""
+
 ## split train/test
 random_id = range(I) #np.random.permutation(range(I))
 train_id = random_id[0:int(0.7*I)]
@@ -51,14 +67,14 @@ train_data = data[data["id"].isin(train_id)]
 test_data = data[data["id"].isin(test_id)]
 
 ## Scale data using Min-Max Scaler
-minmax_scaler = MinMaxScaler(feature_range=(-1,1))
-train_data.loc[:,["Y1","Y2","Y3"]] = minmax_scaler.fit_transform(train_data.loc[:,["Y1","Y2","Y3"]])
-test_data.loc[:,["Y1","Y2","Y3"]] = minmax_scaler.transform(test_data.loc[:,["Y1","Y2","Y3"]])
+# minmax_scaler = MinMaxScaler(feature_range=(-1,1))
+# train_data.loc[:,["Y1","Y2","Y3"]] = minmax_scaler.fit_transform(train_data.loc[:,["Y1","Y2","Y3"]])
+# test_data.loc[:,["Y1","Y2","Y3"]] = minmax_scaler.transform(test_data.loc[:,["Y1","Y2","Y3"]])
 
 ## Train model
 torch.manual_seed(0)
 
-model = Transformer(d_long=3, d_base=2, d_model=32, nhead=4,
+model = Transformer(d_long=1, d_base=1, d_model=32, nhead=4,
                     num_decoder_layers=7)
 model.apply(init_weights)
 model = model.train()
@@ -67,12 +83,17 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e
 scheduler = get_std_opt(optimizer, d_model=32, warmup_steps=200, factor=0.2)
 
 
-n_epoch = 25
+n_epoch = 10
 batch_size = 32
 
-loss_values = []
+
+loss_values_train = []
+loss_values_val = []
+
 for epoch in range(n_epoch):
-    running_loss = 0
+    model.train()
+    running_loss_train = 0
+    # Shuffle training ids
     train_id = np.random.permutation(train_id)
     for batch in range(0, len(train_id), batch_size):
         optimizer.zero_grad()
@@ -80,7 +101,9 @@ for epoch in range(n_epoch):
         indices = train_id[batch:batch+batch_size]
         batch_data = train_data[train_data["id"].isin(indices)]
 
-        batch_long, batch_base, batch_mask, batch_e, batch_t, obs_time = get_tensors(batch_data.copy())
+        batch_long, batch_base, batch_mask, batch_e, batch_t, obs_time = get_tensors(batch_data.copy(),
+                                                                                     long=["Y"],base=["X1"], 
+                                                                                     obstime="obstime")
         batch_long_inp = batch_long[:,:-1,:]
         batch_long_out = batch_long[:,1:,:]
         batch_base = batch_base[:,:-1,:]
@@ -88,23 +111,61 @@ for epoch in range(n_epoch):
         batch_mask_out = batch_mask[:,1:].unsqueeze(2)
 
         yhat_long, yhat_surv = model(batch_long_inp, batch_base, batch_mask_inp,
-                     obs_time[:,:-1], obs_time[:,1:])
+                                     obs_time[:,:-1], obs_time[:,1:])
         loss1 = long_loss(yhat_long, batch_long_out, batch_mask_out)
         loss2 = surv_loss(yhat_surv, batch_mask, batch_e)
         loss = loss1 + loss2
+        
         loss.backward()
         scheduler.step()
-        running_loss += loss
-    loss_values.append(running_loss.tolist())
+        running_loss_train += loss.item()  # use .item() to get a scalar value
 
+    running_loss_train = running_loss_train/ len(train_id)    
+    loss_values_train.append(running_loss_train)
 
-plt.plot((loss_values-np.min(loss_values))/(np.max(loss_values)-np.min(loss_values)), 'b-')
-plt.xlabel('Iterations')
-plt.ylabel('Normalized Loss')
-plt.title('Training Loss')
+    # Validation loop
+    model.eval()
+    running_loss_val = 0
+    with torch.no_grad():
+        for batch in range(0, len(test_id), batch_size):
+            indices = test_id[batch:batch+batch_size]
+            batch_data = test_data[test_data["id"].isin(indices)]
 
+            batch_long, batch_base, batch_mask, batch_e, batch_t, obs_time = get_tensors(batch_data.copy(),
+                                                                                         long=["Y"],base=["X1"], 
+                                                                                         obstime="obstime")
+            batch_long_inp = batch_long[:,:-1,:]
+            batch_long_out = batch_long[:,1:,:]
+            batch_base = batch_base[:,:-1,:]
+            batch_mask_inp = get_mask(batch_mask[:,:-1])
+            batch_mask_out = batch_mask[:,1:].unsqueeze(2)
+
+            yhat_long, yhat_surv = model(batch_long_inp, batch_base, batch_mask_inp,
+                                         obs_time[:,:-1], obs_time[:,1:])
+            loss1 = long_loss(yhat_long, batch_long_out, batch_mask_out)
+            loss2 = surv_loss(yhat_surv, batch_mask, batch_e)
+            loss_val = loss1 + loss2
+
+            running_loss_val += loss_val.item()
+            
+            
+    running_loss_val = running_loss_val/ len(test_id)
+    loss_values_val.append( running_loss_val)
+
+    print(f"Epoch {epoch+1}/{n_epoch} - Train Loss: {running_loss_train:.4f} - Val Loss: {running_loss_val:.4f}")
+
+# Plot both training and validation losses without normalization
+plt.figure(figsize=(10, 6))
+plt.plot(loss_values_train, 'b-', label='Training Loss')
+plt.plot(loss_values_val, 'r-', label='Validation Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss')
+plt.legend()
+plt.savefig("loss_plot.png")  # Save as PNG file
+plt.show()
 # Save the plot to a file
-plt.savefig("plot.png")  # Save as PNG file
+# plt.savefig("plot.png")  # Save as PNG file
 
 
 landmark_times
