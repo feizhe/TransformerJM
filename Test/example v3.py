@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+
 """
 Created on Wed Oct 16 09:11:22 2024
 
@@ -12,7 +11,7 @@ import torch.nn as nn
 
 # Source TransformerJM code
 import sys
-sys.path.append("/Users/feiz/Dropbox/GitHub/TransformerJM")
+sys.path.append("C:/research/TJM/TransformerJM/")
 from Models.Transformer.TransformerJM import Transformer
 from Models.Transformer.functions import (get_tensors, get_mask, init_weights, get_std_opt)
 from Models.Transformer.loss import (long_loss, surv_loss)
@@ -102,7 +101,7 @@ for epoch in range(n_epoch):
         batch_data = train_data[train_data["id"].isin(indices)]
 
         batch_long, batch_base, batch_mask, batch_e, batch_t, obs_time = get_tensors(batch_data.copy(),
-                                                                                     long=["Y"],base=["X1"], 
+                                                                                     long=["Y1"],base=["X1"], 
                                                                                      obstime="obstime")
         batch_long_inp = batch_long[:,:-1,:]
         batch_long_out = batch_long[:,1:,:]
