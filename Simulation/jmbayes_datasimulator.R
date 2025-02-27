@@ -171,13 +171,13 @@ data2 <- data[!duplicated(data$id),]
 
 rdata2 <- r_data[!duplicated(r_data$id),]
 
-test_id <- 1:(round(0.7*I))
+#test_id <- 1:(round(0.7*I))
 
-train_data <- data[]
+#train_data <- data[]
 
-test_data <- data[data$id%in%test_id,]
+#test_data <- data[data$id%in%test_id,]
 
-test_data2 <- data2[data2$id%in%test_id,]
+#test_data2 <- data2[data2$id%in%test_id,]
 
 long2 <- lme(Y ~ X1 + obstime, data = data, random = ~ 1|id) 
 
@@ -237,8 +237,8 @@ lines(chains[[2]],which="trace",param=c("alphas"),col="blue")
 
 
 
-mcs <- mcmc(jmfit2$mcmc)
-traceplot(mcs)
+#mcs <- mcmc(jmfit2$mcmc)
+#traceplot(mcs)
 
 
 par(mfrow=c(2,2))
@@ -414,6 +414,13 @@ test_data<- test_dat
 test_data<-test_data[test_data$obstime<=test_data$time,]
 test_r_data<-test_dat[test_dat$obstime<=test_dat$r_time,]
 
+
+
+test_data <- test_data[,c("id","visit","obstime","predtime","r_time","time", "event","Y","X1","pred_Y","true")]
+
+test_data$event <- ifelse(test_data$event==1,T,F)
+
+write.csv(test_data,file="C:/research/TJM/TransformerJM/testrdata.csv",row.names = FALSE)
 
 #test_data <- data[data$id%in%test_id,]
 
