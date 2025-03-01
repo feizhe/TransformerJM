@@ -4,6 +4,8 @@ library(JMbayes)
 library(tictoc)
 library(basicMCMCplots)
 
+
+set.seed(round(runif(1,1,1111)))
 obstime <- seq(0,10,length=21)
 I<-5000#;opt="none"
 
@@ -171,6 +173,21 @@ data2 <- data[!duplicated(data$id),]
 
 rdata2 <- r_data[!duplicated(r_data$id),]
 
+r_data <- r_data[,c("id","visit","obstime","predtime","r_time","time", "event","Y","X1","pred_Y","true")]
+#names(r_data)[names(r_data) == 'time'] <- 'ctstime'
+#names(r_data)[names(r_data) == 'r_time'] <- 'time'
+r_data$event <- ifelse(r_data$event==1,T,F)
+
+
+write.csv(r_data,file="C:/research/TJM/TransformerJM/r_data.csv",row.names = FALSE)
+
+data <- data[,c("id","visit","obstime","predtime","r_time","time", "event","Y","X1","pred_Y","true")]
+
+data$event <- ifelse(data$event==1,T,F)
+
+write.csv(data,file="C:/research/TJM/TransformerJM/simdata.csv",row.names = FALSE)
+
+
 #test_id <- 1:(round(0.7*I))
 
 #train_data <- data[]
@@ -258,19 +275,6 @@ plot(mcs$D,type="l",ylab="D");abline(h=2.5,col="blue",lwd=2)
 
 par(mfrow=c(1,1))
 
-r_data <- r_data[,c("id","visit","obstime","predtime","r_time","time", "event","Y","X1","pred_Y","true")]
-#names(r_data)[names(r_data) == 'time'] <- 'ctstime'
-#names(r_data)[names(r_data) == 'r_time'] <- 'time'
-r_data$event <- ifelse(r_data$event==1,T,F)
-
-
-write.csv(r_data,file="C:/research/TJM/TransformerJM/r_data.csv",row.names = FALSE)
-
-data <- data[,c("id","visit","obstime","predtime","r_time","time", "event","Y","X1","pred_Y","true")]
-
-data$event <- ifelse(data$event==1,T,F)
-
-write.csv(data,file="C:/research/TJM/TransformerJM/simdata.csv",row.names = FALSE)
 
 
 test_id <- (round(0.7*I)+1):I
@@ -443,14 +447,34 @@ lts <- seq(2,6,by=0.5)
 
 #cor(test_data$Y,np)
 #plot(test_data$Y,np)
-aucJM(jmfit2,newdata = test_data, Tstart=1,Thoriz = 5)
+
+
+pt <- seq(1,4.5,by=0.5)
+
+aucs <- numeric(length(seq(1,4.5,by=0.5)))
+sds <- 
+for (i in 1:length(pt)){
+  chain_auc <- numeric(3)
+  for (j in 1:3){
+    chain_auc[j] <- aucJM(chains[[j]],newdata = test_data, Tstart=pt[i],Thoriz = 5)$auc
+  }
+  aucs[i] <- mean(chain_auc)
+}
+
+
+aucs
+
+aucJM(chains[[1]],newdata = test_data, Tstart=1,Thoriz = 5)$auc
+
+
+
 aucJM(jmfit2,newdata = test_data, Tstart=1.5, Thoriz = 5)
 aucJM(jmfit2,newdata = test_data, Tstart=2, Thoriz = 5)
 aucJM(jmfit2,newdata = test_data,Tstart = 2.5,Thoriz = 5)
 aucJM(jmfit2,newdata = test_data,Tstart = 3,Thoriz = 5)
 aucJM(jmfit2,newdata = test_data,Tstart = 3.5,Thoriz = 5)
 aucJM(jmfit2,newdata = test_data,Tstart = 4,Thoriz = 5)
-aucJM(jmfit2,newdata = test_data,Tstart = 4.5,Thoriz = 5)
+aucJM(chains[[1]],newdata = test_data,Tstart = 4.5,Thoriz = 5)
 
 
 par(mfrow=c(1,1))
