@@ -243,7 +243,7 @@ plt.savefig("loss_by_component.png")  # Save as PNG file
 
 
 landmark_times
-LT = 4.5
+LT = 3.5
 pred_times = [x+LT for x in pred_windows]
 pred_times
 # Only keep subjects with survival time > landmark time

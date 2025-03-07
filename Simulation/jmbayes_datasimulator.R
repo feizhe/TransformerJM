@@ -280,6 +280,8 @@ par(mfrow=c(1,1))
 test_id <- (round(0.7*I)+1):I
 
 
+set.seed(round(runif(1,1,1000)))
+
 I2 <- 1000
 
 
@@ -450,19 +452,27 @@ lts <- seq(2,6,by=0.5)
 
 
 pt <- seq(1,4.5,by=0.5)
-
+censor.rate <- numeric(length(pt))
+obsleft<- numeric(8)
 aucs <- numeric(length(seq(1,4.5,by=0.5)))
-sds <- 
+aucs_hence <- numeric(8)
+
 for (i in 1:length(pt)){
   chain_auc <- numeric(3)
+  auch <- numeric(3)
   for (j in 1:3){
     chain_auc[j] <- aucJM(chains[[j]],newdata = test_data, Tstart=pt[i],Thoriz = 5)$auc
+    auch[j] <- aucJM(chains[[j]],newdata = test_data, Tstart=1,Thoriz = pt[i]+0.5)$auc
   }
   aucs[i] <- mean(chain_auc)
+  aucs_hence[i]<-mean(auch)
+  censor.rate[i] <- 1-mean(subset(test_data, time > pt[i] & obstime==0)$event)
+  obsleft[i] <- sum((test_data[test_data$visit==0,]$time > pt[i]))
 }
+censor.rate
+obsleft
 
-
-aucs
+aucs;aucs_hence
 
 aucJM(chains[[1]],newdata = test_data, Tstart=1,Thoriz = 5)$auc
 
@@ -474,18 +484,46 @@ aucJM(jmfit2,newdata = test_data,Tstart = 2.5,Thoriz = 5)
 aucJM(jmfit2,newdata = test_data,Tstart = 3,Thoriz = 5)
 aucJM(jmfit2,newdata = test_data,Tstart = 3.5,Thoriz = 5)
 aucJM(jmfit2,newdata = test_data,Tstart = 4,Thoriz = 5)
-aucJM(chains[[1]],newdata = test_data,Tstart = 4.5,Thoriz = 5)
+aucJM(jmfit2,newdata = test_data,Tstart = 4.5,Thoriz = 5)
 
 
 par(mfrow=c(1,1))
-plot(rocJM(chains[[1]],newdata = test_data, Tstart=1,Thoriz = 5))
+plot(rocJM(jmfit2,newdata = test_data, Tstart=1,Thoriz = 1.5))
+1-mean(subset(test_data, time > 1 & obstime==0)$event)
+
+
 
 plot(rocJM(jmfit2,newdata = test_data, Tstart=2,Thoriz = 5))
+1-mean(subset(test_data, time > 1.5 & obstime==0)$event)
 
 plot(rocJM(jmfit2,newdata = test_data, Tstart=2.5,Thoriz = 5))  
+1-mean(subset(test_data, time > 2 & obstime==0)$event)
 
 plot(rocJM(jmfit2,newdata = test_data, Tstart=3,Thoriz = 5))
 
 plot(rocJM(jmfit2,newdata = test_data, Tstart=3.5,Thoriz = 5))
 
+plot(rocJM(jmfit2,newdata = test_data, Tstart=4,Thoriz = 5))
+1-mean(subset(test_data, time > 3.5 & obstime==0)$event)
+length(subset(test_data, time > 3.5 & obstime==0)$event)
 
+1-mean(subset(test_data, time > 4 & obstime==0)$event)
+length(subset(test_data, time > 4 & obstime==0)$event)
+
+1-mean(subset(test_data, time > 4.5 & obstime==0)$event)
+length(subset(test_data, time > 4.5 & obstime==0)$event)
+ 
+
+
+pt <- seq(1,4.5,by=0.5)
+
+
+
+
+
+
+
+
+aucs
+
+ sum((test_data$time > 4.5)&&(test_data$obstime==0))

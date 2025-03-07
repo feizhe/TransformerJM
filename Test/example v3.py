@@ -210,8 +210,10 @@ tmp_data = test_data.loc[test_data["time"]>LT,:]
 tmp_data = tmp_data.loc[tmp_data["obstime"]<=LT,:]
 
 
-tmp_long, tmp_base, tmp_mask, e_tmp, t_tmp, obs_time = get_tensors(tmp_data.copy())
-train_long, train_base, train_mask, e_train, t_train, obs_time = get_tensors(train_data.copy())
+tmp_long, tmp_base, tmp_mask, e_tmp, t_tmp, obs_time_1 = get_tensors(tmp_data.copy(),long=["Y"],base=["X1"], 
+                                                                                         obstime="obstime")
+train_long, train_base, train_mask, e_train, t_train, obs_time = get_tensors(train_data.copy(),long=["Y"],base=["X1"], 
+                                                                                         obstime="obstime")
 
 
 base_0 = tmp_base[:,0,:].unsqueeze(1)        
@@ -228,8 +230,10 @@ model = model.eval()
 
 for pt in pred_times:
     dec_base = base_0.expand([-1,dec_long.shape[1],-1])
+    if obs_time_1.shape[1] != dec_long.shape[1]:
+        obs_time_1 = torch.cat([obs_time_1, torch.zeros(obs_time_1.shape[0], dec_long.shape[1] - obs_time_1.shape[1])], dim=1)
 
-    out = model.decoder(dec_long, dec_base, get_mask(tmp_mask), obs_time)
+    out = model.decoder(dec_long, dec_base, get_mask(tmp_mask), obs_time_1)
     out = model.decoder_pred(out[:,-1,:].unsqueeze(1), out,
           tmp_mask.unsqueeze(1), torch.tensor(pt))
     long_out = model.long(out)
@@ -246,14 +250,14 @@ long_pred = long_pred.detach().numpy()
 surv_pred = surv_pred.squeeze().detach().numpy()
 surv_pred = surv_pred.cumprod(axis=1)
 
-auc, iauc = AUC(surv_pred, e_tmp.numpy(), t_tmp.numpy(), np.array(pred_times))
-auc
-iauc
+# auc, iauc = AUC(surv_pred, e_tmp.numpy(), t_tmp.numpy(), np.array(pred_times))
+# auc
+# iauc
 
-bs, ibs = Brier(surv_pred, e_tmp.numpy(), t_tmp.numpy(),
-                  e_train.numpy(), t_train.numpy(), LT, np.array(pred_windows))
+# bs, ibs = Brier(surv_pred, e_tmp.numpy(), t_tmp.numpy(),
+#                   e_train.numpy(), t_train.numpy(), LT, np.array(pred_windows))
 
-bs
+# bs
 
 
 

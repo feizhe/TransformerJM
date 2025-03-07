@@ -30,7 +30,7 @@ def surv_loss(surv_pred, mask, event):
     s_filter = mask_out - e_filter
 
     # Debug: Output row sums of e_filter
-    print("Row sums of e_filter:", np.sum(e_filter, axis=1), flush=True)
+    #print("Row sums of e_filter:", np.sum(e_filter, axis=1), flush=True)
     # e_filter_row_sums = np.atleast_1d(np.sum(e_filter, axis=1))
 
     s_filter = torch.tensor(s_filter)
