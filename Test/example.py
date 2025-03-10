@@ -12,7 +12,7 @@ import torch.nn as nn
 
 # Source TransformerJM code
 import sys
-sys.path.append("/Users/feiz/Dropbox/GitHub/TransformerJM")
+sys.path.append("C:/research/TJM/TransformerJM/")
 from Models.Transformer.TransformerJM import Transformer
 from Models.Transformer.functions import (get_tensors, get_mask, init_weights, get_std_opt)
 from Models.Transformer.loss import (long_loss, surv_loss)

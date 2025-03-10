@@ -515,12 +515,17 @@ length(subset(test_data, time > 4.5 & obstime==0)$event)
  
 
 
+par(mfrow=c(3,1))
+plot(rocJM(jmfit2,newdata = test_data, Tstart=1,Thoriz = 3.5),main="LT 1, HT 3.5. AUC = 0.98877")
+plot(rocJM(jmfit2,newdata = test_data, Tstart=1,Thoriz = 4),main="LT 1, HT 4. AUC = 0.98733")
+plot(rocJM(jmfit2,newdata = test_data, Tstart=1,Thoriz = 4.5),main="LT 1, HT 4.5. AUC = 0.98863")
+
 pt <- seq(1,4.5,by=0.5)
 
 
 
 
-
+survs <- survfitJM(jmfit2,newdata = test_data, idVar = "id",type="SurvProb")
 
 
 

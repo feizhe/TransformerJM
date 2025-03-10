@@ -6,7 +6,7 @@ import os
 import rpy2.robjects as ro
 import rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
-ro.r.source("C:/Users/jgmea/research/transf/TransformerJM/Models/AUC_BS.r")
+ro.r.source("C:/research/TJM/TransformerJM/Models/AUC_BS.r")
 AUC_R = ro.globalenv['AUC']
 Brier_R = ro.globalenv['Brier']
 
