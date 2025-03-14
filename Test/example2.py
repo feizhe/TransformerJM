@@ -101,7 +101,7 @@ loss_values = []
 
 train_mse =[]
 train_nlik = []
-# val_loss_values = []
+val_loss_values = []
 
 start = time.time()
 
@@ -144,35 +144,35 @@ for epoch in range(n_epoch):
     train_nlik.append(running_nlik.tolist())
     
     test_id = np.random.permutation(test_id)
-    # running_val_loss = 0
+    running_val_loss = 0
 
-    # with torch.no_grad():  # Disable gradient calculation
-    #     for batch in range(0, len(test_id), batch_size):
-    #         # Prepare validation batch data
-    #         indices = test_id[batch:batch + batch_size]
-    #         batch_data = test_data[test_data["id"].isin(indices)]
-    #         batch_long, batch_base, batch_mask, batch_e, batch_t, obs_time = get_tensors(
-    #             batch_data.copy(), long=["Y"], base=["X1"])
-    #         batch_long_inp = batch_long[:, :-1, :]
-    #         batch_long_out = batch_long[:, 1:, :]
-    #         batch_base = batch_base[:, :-1, :]
-    #         batch_mask_inp = get_mask(batch_mask[:, :-1])
-    #         batch_mask_out = batch_mask[:, 1:].unsqueeze(2)
+    with torch.no_grad():  # Disable gradient calculation
+        for batch in range(0, len(test_id), batch_size):
+            # Prepare validation batch data
+            indices = test_id[batch:batch + batch_size]
+            batch_data = test_data[test_data["id"].isin(indices)]
+            batch_long, batch_base, batch_mask, batch_e, batch_t, obs_time = get_tensors(
+                batch_data.copy(), long=["Y"], base=["X1"])
+            batch_long_inp = batch_long[:, :-1, :]
+            batch_long_out = batch_long[:, 1:, :]
+            batch_base = batch_base[:, :-1, :]
+            batch_mask_inp = get_mask(batch_mask[:, :-1])
+            batch_mask_out = batch_mask[:, 1:].unsqueeze(2)
 
-    #         # Forward pass
-    #         yhat_long, yhat_surv = model(batch_long_inp, batch_base, batch_mask_inp, obs_time[:, :-1], obs_time[:, 1:])
+            # Forward pass
+            yhat_long, yhat_surv = model(batch_long_inp, batch_base, batch_mask_inp, obs_time[:, :-1], obs_time[:, 1:])
 
-    #         # Compute validation loss
-    #         val_loss1 = long_loss(yhat_long, batch_long_out, batch_mask_out)
-    #         val_loss2 = surv_loss(yhat_surv, batch_mask, batch_e)
-    #         val_loss = val_loss1 + val_loss2
-    #        # val_loss.backward()
-    #        # scheduler.step()
+            # Compute validation loss
+            val_loss1 = long_loss(yhat_long, batch_long_out, batch_mask_out)
+            val_loss2 = surv_loss(yhat_surv, batch_mask, batch_e)
+            val_loss = val_loss1 + val_loss2
+           # val_loss.backward()
+           # scheduler.step()
 
-    #         # Accumulate validation loss
-    #         running_val_loss += val_loss
-    # running_val_loss = running_val_loss/ len(test_id)
-    # val_loss_values.append(running_val_loss.tolist())
+            # Accumulate validation loss
+            running_val_loss += val_loss
+    running_val_loss = running_val_loss/ len(test_id)
+    val_loss_values.append(running_val_loss.tolist())
 
 
 

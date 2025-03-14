@@ -96,7 +96,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e
 scheduler = get_std_opt(optimizer, d_model=32, warmup_steps=200, factor=0.2)
 
 
-n_epoch = 5
+n_epoch = 25
 batch_size = 32
 
 

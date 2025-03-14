@@ -125,7 +125,7 @@ for (i in 1:I) {
   }
 }
 
-C <- rexp(I, 0.15)
+C <- rexp(I, 0.0001)
 C <- pmin(C, obstime[length(obstime)])
 event <- as.numeric(trueTimes <= C)#;sum(event)
 event.time <- pmin(trueTimes, C)
@@ -282,6 +282,11 @@ test_id <- (round(0.7*I)+1):I
 
 set.seed(round(runif(1,1,1000)))
 
+
+test.data <- function(seed=1){
+
+set.seed(seed)
+    
 I2 <- 1000
 
 
@@ -378,18 +383,18 @@ while(i<=I2) {
     i = i + 1
 }
 
-mean(trueTimes);hist(trueTimes)
+# mean(trueTimes);hist(trueTimes)
 
 # Get true survival probabilities
-true_prob <- matrix(1, nrow = I2, ncol = length(obstime))
-for (i in 1:I) {
-  for (j in 2:length(obstime)) {
-    tau <- obstime[j]
-    true_prob[i, j] <- CHF(tau, i)
-  }
-}
+#true_prob <- matrix(1, nrow = I2, ncol = length(obstime))
+#for (i in 1:I) {
+#  for (j in 2:length(obstime)) {
+#    tau <- obstime[j]
+#    true_prob[i, j] <- CHF(tau, i)
+#  }
+#}
 
-C <- rexp(I2, 0.15)
+C <- rexp(I2, 0.0000015)
 C <- pmin(C, obstime[length(obstime)])
 event <- as.numeric(trueTimes <= C)#;sum(event)
 event.time <- pmin(trueTimes, C)
@@ -405,7 +410,7 @@ test_dat$time = rep(event.time, each = J)
 
 true_prob <- as.vector(t(true_prob))
 
-test_dat$true <- true_prob
+#test_dat$true <- true_prob
 #ID <- rep(0:(I - 1), each = J)
 visit <- rep(0:(J - 1), I2)
 test_dat$r_time <- rep(sapply(event.time, function(t) min(obstime[obstime - t >= 0])),each=J)
@@ -422,15 +427,84 @@ test_r_data<-test_dat[test_dat$obstime<=test_dat$r_time,]
 
 
 
-test_data <- test_data[,c("id","visit","obstime","predtime","r_time","time", "event","Y","X1","pred_Y","true")]
+test_data <- test_data[,c("id","visit","obstime","predtime","r_time","time", "event","Y","X1","pred_Y")]
 
 test_data$event <- ifelse(test_data$event==1,T,F)
 
+return(test_data)
+}
+
+test_data <- test.data(1111111)
 write.csv(test_data,file="C:/research/TJM/TransformerJM/testrdata.csv",row.names = FALSE)
+
 
 #test_data <- data[data$id%in%test_id,]
 
-#test_data_1 <- subset(test_data, time > 1 & obstime <=1)
+
+par(mfrow=c(2,1))
+
+hist(test_data$Y,breaks=10);hist(predict.JMbayes(jmfit2,newdata = test_data),breaks=10)
+
+
+bias <- mean(test_data$Y-predict.JMbayes(jmfit2,newdata = test_data))
+mse <- mean((test_data$Y-predict.JMbayes(jmfit2,newdata = test_data))^2)
+
+
+boot <- 1000
+
+bots <- matrix(nrow=boot,ncol=3)
+
+for (b in 1:boot){
+  
+  testdataboot <- test.data(b)
+  
+  bots[b,1]<- mean(testdataboot$Y-predict.JMbayes(jmfit2,newdata = testdataboot))
+  bots[b,2]<- mean((testdataboot$Y-predict.JMbayes(jmfit2,newdata = testdataboot))^2)
+}
+
+
+chain1 <- chains[[1]]$mcmc
+
+bias.bayes <- numeric(7)
+
+bias.bayes[1] <- mean(chain1$betas[,1] + 2.5)
+bias.bayes[2] <- mean(chain1$betas[,2] - 2)
+bias.bayes[3] <- mean(chain1$betas[,3] - 1.5)
+bias.bayes[4] <- mean(chain1$sigma-1)
+bias.bayes[5] <- mean(chain1$D - 2.5)
+bias.bayes[6] <- mean(chain1$gammas - 1.5)
+bias.bayes[7] <- mean(chain1$alphas - 0.9)
+
+bias.bayes
+
+mse.bayes<-numeric(7)
+
+
+
+mse.bayes[1] <- mean((chain1$betas[,1] + 2.5)^2)
+mse.bayes[2] <- mean((chain1$betas[,2] - 2)^2)
+mse.bayes[3] <- mean((chain1$betas[,3] - 1.5)^2)
+mse.bayes[4] <- mean((chain1$sigma-1)^2)
+mse.bayes[5] <- mean((chain1$D - 2.5)^2)
+mse.bayes[6] <- mean((chain1$gammas - 1.5)^2)
+mse.bayes[7] <- mean((chain1$alphas - 0.9)^2)
+
+mse.bayes
+
+library(ggplot2)
+par(mfrow=c(1,1))
+bots <- as.data.frame(bots);colnames(bots)<-c("bias","mse")
+
+hist(bots$bias,main="Histogram of Bias")
+hist(bots$mse,main="Histogram of MSE")
+
+hist(bots$bias^2/bots$mse, main="Histogram for proportion of mse as squared bias")
+
+
+p <- ggplot(data=bots, aes(x=bias))+geom_histogram()
+
+
+p#test_data_1 <- subset(test_data, time > 1 & obstime <=1)
 #test_data_1_5 <- subset(test_data, time > 1.5 & obstime <=1.5)
 #test_data_2 <- subset(test_data, time > 2 & obstime <=2)
 #test_data_2_5 <- subset(test_data, time > 2.5 & obstime <=2.5)
@@ -451,28 +525,64 @@ lts <- seq(2,6,by=0.5)
 #plot(test_data$Y,np)
 
 
-pt <- seq(1,4.5,by=0.5)
-censor.rate <- numeric(length(pt))
-obsleft<- numeric(8)
-aucs <- numeric(length(seq(1,4.5,by=0.5)))
-aucs_hence <- numeric(8)
 
+bootauc1 <- as.data.frame(matrix(nrow=25,ncol=5))
+bootauc2 <- as.data.frame(matrix(nrow=25,ncol=5))
+bootobs <- as.data.frame(matrix(nrow=25,ncol=5))
+
+pt <- seq(0.5,2.5,by=0.5)
+censor.rate <- numeric(length(pt))
+obsleft<- numeric(5)
+aucs <- numeric(length(seq(0.5,2.5,by=0.5)))
+aucs_hence <- numeric(5)
+
+for (b in 1:25){
+bootdata <- test.data(seed=b)
 for (i in 1:length(pt)){
   chain_auc <- numeric(3)
   auch <- numeric(3)
   for (j in 1:3){
-    chain_auc[j] <- aucJM(chains[[j]],newdata = test_data, Tstart=pt[i],Thoriz = 5)$auc
-    auch[j] <- aucJM(chains[[j]],newdata = test_data, Tstart=1,Thoriz = pt[i]+0.5)$auc
+    chain_auc[j] <- aucJM(chains[[j]],newdata = bootdata, Tstart=pt[i],Thoriz = 3)$auc
+    auch[j] <- aucJM(chains[[j]],newdata = bootdata, Tstart=0.5,Thoriz = pt[i]+0.5)$auc
   }
   aucs[i] <- mean(chain_auc)
   aucs_hence[i]<-mean(auch)
-  censor.rate[i] <- 1-mean(subset(test_data, time > pt[i] & obstime==0)$event)
-  obsleft[i] <- sum((test_data[test_data$visit==0,]$time > pt[i]))
+  censor.rate[i] <- 1-mean(subset(bootdata, time > pt[i] & obstime==0)$event)
+  obsleft[i] <- sum((bootdata[bootdata$visit==0,]$time > pt[i]))
+}
+bootauc1[b,] <- aucs
+bootauc2[b,] <- aucs_hence
+bootobs[b,] <- obsleft
+}
+ 
+
+auc.stuff <- as.data.frame(t(na.omit(bootauc1)))
+auc.stuff$lt <- pt
+
+colnames
+
+plot(pt,auc.stuff[,1],type="l", xlab="Start Times",ylab="AUC",main="AUCs for survival predictions up to horizon time 3")
+for (i in 2:14){
+  
+  lines(pt,auc.stuff[,i])
+}
+
+
+plot(pt+0.5,as.data.frame(t(na.omit(bootauc2)))[,1],type="l",
+     xlab = "Horizon Times",ylab="AUCs",
+     main = "AUCs for predictions from time 0.5 to horizon time")
+for (i in 2:14){
+  lines(pt+0.5,as.data.frame(t(na.omit(bootauc2)))[,i])
+  
 }
 censor.rate
 obsleft
 
 aucs;aucs_hence
+
+
+ 
+
 
 aucJM(chains[[1]],newdata = test_data, Tstart=1,Thoriz = 5)$auc
 
