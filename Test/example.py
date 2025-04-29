@@ -30,7 +30,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # Global options
-n_sim = 1
+n_sim = 2
 I = 1000
 obstime = [0,1,2,3,4,5,6,7,8,9,10]
 landmark_times = [1,2,3,4,5]
@@ -42,7 +42,7 @@ data_all = simulate_JM_base(I=I, obstime=obstime, opt=scenario, seed=n_sim)
 data = data_all[data_all.obstime <= data_all.time]
 
 ## split train/test
-random_id = range(I) #np.random.permutation(range(I))
+random_id = range(I) #np.random.permutation(range(I)) 
 train_id = random_id[0:int(0.7*I)]
 test_id = random_id[int(0.7*I):I]
 
