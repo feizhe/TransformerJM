@@ -128,8 +128,14 @@ class Transformer(nn.Module):
                  nhead = 4,
                  num_decoder_layers = 3,
                  dropout = 0.2):
-        super().__init__()
-
+        super(Transformer, self).__init__()
+        self.d_long = d_long  # Number of longitudinal features
+        self.d_base = d_base  # Number of baseline features
+        self.embedding = nn.Sequential(
+            nn.Linear(d_long + d_base, d_model),
+            nn.ReLU()
+        )
+        
         self.decoder = Decoder(d_long, d_base, d_model, nhead, num_decoder_layers, dropout)
         
         self.decoder_pred = Decoder_p(d_model, nhead, 1, dropout)
@@ -144,6 +150,12 @@ class Transformer(nn.Module):
         
 
     def forward(self, long, base, mask, obs_time, pred_time):        
+        # Concatenate longitudinal and baseline features
+        x = torch.cat((long, base), dim=-1)
+        # Debugging print
+        # print("Shape of concatenated input:", x.shape)
+        x = self.embedding(x)
+        
         # Decoder Layers
         x = self.decoder(long, base, mask, obs_time)
         
@@ -155,4 +167,3 @@ class Transformer(nn.Module):
         surv = torch.sigmoid(self.surv(x))
         
         return long, surv
-    

@@ -62,7 +62,7 @@ model = Transformer(d_long=3, d_base=2, d_model=32, nhead=4,
 model.apply(init_weights)
 model = model.train()
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.98), eps=1e-9)
 scheduler = get_std_opt(optimizer, d_model=32, warmup_steps=200, factor=0.2)
 
 

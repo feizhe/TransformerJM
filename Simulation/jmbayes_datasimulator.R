@@ -125,7 +125,7 @@ for (i in 1:I) {
   }
 }
 
-C <- rexp(I, 0.0001)
+C <- rexp(I, 0.5)
 C <- pmin(C, obstime[length(obstime)])
 event <- as.numeric(trueTimes <= C)#;sum(event)
 event.time <- pmin(trueTimes, C)
@@ -204,15 +204,27 @@ cox.2 <- coxph(Surv(time, event)~X1, data = data2, x = TRUE)
 
 chains <- vector(mode="list",length=3)
 
+
 for (i in 1:3){
-  #set.seed(i)
+  set.seed(i)
+  #Rprof(tf <- "rprof.log", memory.profiling=TRUE)
   tic()
   chains[[i]] <-jmfit2 <- jointModelBayes(long2, cox.2, timeVar = "obstime",
                                           control=list(seed=i,n.iter=5000,
                                                        n.burnin=2000,n.thin=5))
   toc()
+  #Rprof(NULL)
+  #summaryRprof(tf)
 }
 
+
+#Rprof(tf <- "rprof.log", memory.profiling=TRUE)
+#tic()
+#jmfit2 <- jointModelBayes(long2, cox.2, timeVar = "obstime", control=list(seed=i,n.iter=5000,
+                                                     #n.burnin=2000,n.thin=5))
+#toc()
+#Rprof(NULL)
+#summaryRprof(tf)
 
 thetas1 <- cbind(chains[[1]]$mcmc$betas,chains[[1]]$mcmc$sigma,chains[[1]]$mcmc$D)
 thetas2 <- cbind(chains[[2]]$mcmc$betas,chains[[2]]$mcmc$sigma,chains[[2]]$mcmc$D)
@@ -394,7 +406,7 @@ while(i<=I2) {
 #  }
 #}
 
-C <- rexp(I2, 0.0000015)
+C <- rexp(I2, 0.5)
 C <- pmin(C, obstime[length(obstime)])
 event <- as.numeric(trueTimes <= C)#;sum(event)
 event.time <- pmin(trueTimes, C)
@@ -526,9 +538,9 @@ lts <- seq(2,6,by=0.5)
 
 
 
-bootauc1 <- as.data.frame(matrix(nrow=25,ncol=5))
-bootauc2 <- as.data.frame(matrix(nrow=25,ncol=5))
-bootobs <- as.data.frame(matrix(nrow=25,ncol=5))
+bootauc1 <- as.data.frame(matrix(nrow=5,ncol=5))
+bootauc2 <- as.data.frame(matrix(nrow=5,ncol=5))
+bootobs <- as.data.frame(matrix(nrow=5,ncol=5))
 
 pt <- seq(0.5,2.5,by=0.5)
 censor.rate <- numeric(length(pt))
@@ -536,7 +548,33 @@ obsleft<- numeric(5)
 aucs <- numeric(length(seq(0.5,2.5,by=0.5)))
 aucs_hence <- numeric(5)
 
-for (b in 1:25){
+
+window <- c(0.5, 1)
+lm_times <- c(1,1.5,2)
+
+auc_matrix <- matrix(0,nrow=3,ncol=2)
+
+for (t in 1:3){
+  for (w in 1:2){
+    seeds <- 17945612
+    bootdata <- test.data(seed=seeds)
+    chains_auc <- numeric(3)
+    auch <- numeric(3)
+    for(j in 1:3){
+      chains_auc[j]<- aucJM(chains[[j]],
+                            newdata = bootdata,Tstart=lm_times[t],
+                            Thoriz=lm_times[t]+window[w])$auc
+    }
+    seeds<-seeds+1
+    auc_matrix[t,w]<- mean(chains_auc)
+  }
+  
+}
+
+auc_matrix
+
+
+for (b in 1:5){
 bootdata <- test.data(seed=b)
 for (i in 1:length(pt)){
   chain_auc <- numeric(3)
@@ -560,9 +598,9 @@ auc.stuff <- as.data.frame(t(na.omit(bootauc1)))
 auc.stuff$lt <- pt
 
 colnames
-
+par(mfrow=c(1,1))
 plot(pt,auc.stuff[,1],type="l", xlab="Start Times",ylab="AUC",main="AUCs for survival predictions up to horizon time 3")
-for (i in 2:14){
+for (i in 2:5){
   
   lines(pt,auc.stuff[,i])
 }
@@ -584,8 +622,8 @@ aucs;aucs_hence
  
 
 
-aucJM(chains[[1]],newdata = test_data, Tstart=1,Thoriz = 5)$auc
-
+aucJM(chains[[1]],newdata = test_data, Tstart=1,Thoriz = 1.5)$auc
+aucJM(chains[[1]],newdata = test_data, Tstart=1,Thoriz = 1.5)$auc
 
 
 aucJM(jmfit2,newdata = test_data, Tstart=1.5, Thoriz = 5)
@@ -634,11 +672,15 @@ pt <- seq(1,4.5,by=0.5)
 
 
 
-
-survs <- survfitJM(jmfit2,newdata = test_data, idVar = "id",type="SurvProb")
-
+test_subset <- subset(test_data, id < 15); test_subset$event <- as.numeric(test_subset$event)
 
 
+survs <- survfitJM(jmfit2,newdata = test_subset[test_subset$id <5,], idVar = "id",type="SurvProb", 
+                   simulate=T,survTimes = pt)
+
+survs$summaries
+
+plot(survs)
 aucs
 
  sum((test_data$time > 4.5)&&(test_data$obstime==0))
