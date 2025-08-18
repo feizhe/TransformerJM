@@ -133,11 +133,11 @@ def get_tensors(df, long=["Y1","Y2","Y3"], base=["X1","X2"], obstime = "obstime"
     df.loc[:,"id_new"] = df.groupby(by="id").grouper.group_info[0]
     if "visit" not in df:
         df.loc[:,"visit"] = df.groupby(by="id").cumcount()
-    
-    I = len(np.unique(df.loc[:,"id"]))
-    max_len = np.max(df.loc[:,"visit"]) + 1
-    
-    x_base = torch.zeros(I, max_len, len(base))
+
+    I = int(len(np.unique(df.loc[:,"id"])))
+    max_len = int(np.max(df.loc[:,"visit"]) + 1)
+    print(f"Number of subjects (I): {I}, Max visits (max_len): {max_len}")
+    x_base = torch.zeros(I, max_len, int(len(base)))
     x_long = torch.zeros(I, max_len, len(long))
     mask = torch.zeros((I, max_len), dtype=torch.bool)
     obs_time = torch.zeros(I, max_len)
@@ -154,9 +154,11 @@ def get_tensors(df, long=["Y1","Y2","Y3"], base=["X1","X2"], obstime = "obstime"
         # print(x_base[ii,jj,:])
         mask[ii,jj] = 1
         obs_time[ii,jj] = row.loc[obstime]
-   
-    e = torch.tensor(df.loc[df["visit"]==0,"event"].values).squeeze()
-    t = torch.tensor(df.loc[df["visit"]==0,"time"].values).squeeze()
+    first_rows = df.sort_values(['id', obstime]).groupby('id').first().reset_index()
+    e = torch.tensor(first_rows["event"].values).squeeze()
+    t = torch.tensor(first_rows["time"].values).squeeze()
+    # e = torch.tensor(df.loc[df["visit"]==0,"event"].values).squeeze()
+    # t = torch.tensor(df.loc[df["visit"]==0,"time"].values).squeeze()
     
     return x_long, x_base, mask, e, t, obs_time
 
