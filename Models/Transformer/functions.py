@@ -136,17 +136,22 @@ def get_tensors(df, long=["Y1","Y2","Y3"], base=["X1","X2"], obstime = "obstime"
 
     I = int(len(np.unique(df.loc[:,"id"])))
     max_len = int(np.max(df.loc[:,"visit"]) + 1)
-    print(f"Number of subjects (I): {I}, Max visits (max_len): {max_len}")
+    #print(f"Number of subjects (I): {I}, Max visits (max_len): {max_len}")
     x_base = torch.zeros(I, max_len, int(len(base)))
     x_long = torch.zeros(I, max_len, len(long))
     mask = torch.zeros((I, max_len), dtype=torch.bool)
     obs_time = torch.zeros(I, max_len)
+        # Fill baseline for each subject (repeat for all visits)
+    first_rows = df.sort_values(['id', obstime]).groupby('id').first().reset_index()
+    for i, row in first_rows.iterrows():
+        x_base[i, :, :] = torch.tensor(row[base].values, dtype=torch.float32)
+
     for index, row in df.iterrows():
         ii = int(row.loc["id_new"])
         jj = int(row.loc["visit"])
         # ii = int(row.iloc[df.columns.get_loc("id_new")])
         # jj = int(row.iloc[df.columns.get_loc("visit")])
-        x_base[ii,jj,:] = torch.tensor(row.loc[base])
+        #x_base[ii,jj,:] = torch.tensor(row.loc[base])
         x_long[ii,jj,:] = torch.tensor(row.loc[long])
         # print(ii,jj)
         # x_base[ii, jj, :] = torch.tensor(pd.to_numeric(row.loc[base]).values, dtype=torch.float32)

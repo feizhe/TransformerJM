@@ -1,0 +1,543 @@
+---
+title: "crd"
+author: "John Eager"
+date: "2025-09-08"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load the data 
+
+
+
+```{r cars}
+path1 <- "C:/research/real_data/ALL_CVD_EVENTS.CSV"
+
+all_cvd_events <- read.csv(path1)
+
+head(all_cvd_events)
+
+
+
+
+
+allcvd<-all_cvd_events %>%
+  group_by(PID,VNUM) %>%
+  mutate(NUMBER_OF_EVENTS = cumsum(!duplicated(EVENT)))
+
+head(allcvd[,c(1,2,12)],20)
+
+df_adjusted <- allcvd %>%
+  mutate(VNUM_odd = if_else(VNUM %% 2 == 0, VNUM + 1L, VNUM))
+
+# Step 2: Collapse to unique patient + odd visit and count distinct events
+df_collapsed <- df_adjusted %>%
+  group_by(PID, VNUM_odd) %>%
+  summarise(NUMBER_OF_EVENTS = n_distinct(EVENT), .groups = "drop")
+
+colnames(df_collapsed) = c("PID","VNUM", "CVD_COUNT")
+head(df_collapsed,8)
+stuff <- allcvd[,c(1,2,12)]
+
+path2 <-"C:/research/real_data/ECG.CSV"
+ecg <- read.csv(path2)
+
+
+
+
+path3 <-"C:/research/real_data/PERSONLEVEL.CSV"
+
+personlevel <- read.csv(path3)
+head(personlevel)
+
+
+path4 <- "C:/research/real_data/VISITLEVEL.CSV"
+visitlevel <-read.csv(path4) 
+head(visitlevel[,1:6])
+
+vl_sub <- subset(visitlevel,VNUM %%2 !=0)
+
+
+thing1 <- left_join(vl_sub,personlevel,by="PID")
+
+
+
+head(all_cvd_events)
+ 
+
+
+path5 <- "C:/research/real_data/SA_ALLC.CSV"
+allc <- read.csv(path5)
+head(allc)
+event_crd <-allc[,1:3]
+head(event_crd)
+event_crd$event <- ifelse(event_crd$SA_ALLC_ESRD %in% c(1,2),1,0)
+
+1-mean(event_crd$event)
+
+
+thing2 <- left_join(thing1,event_crd[,-2])
+
+
+
+head(personlevel[,c('PID','ENROL_PHS','CCIDSITE','SEX','RACE_CAT_1','DIABETES_AT_BASELINE')])
+
+
+head(vl_sub[,c('PID','AGE_INTEGER','BMI','SMOKENOW','EGFR_CRIC','HEMOGLOBIN_A1C','HIBP','GLUCOSE')])
+
+
+#bcajbasf <- lme(EGFR_CRIC~AGE_INTEGER+BMI+SMOKENOW+HEMOGLOBIN_A1C+HIBP+GLUCOSE,random=~1|PID,data=na.omit(vl_sub))
+crd_data <- thing2[,c('PID','VNUM','SEX','RACE_CAT_1',
+                      'DIABETES_AT_BASELINE','AGE_INTEGER','BMI','SMOKENOW',
+                      'EGFR_CRIC','HEMOGLOBIN_A1C','HIBP',
+                      'SA_ALLC_TIME_ESRD','event','DAYS_THISVISIT','ANYCVD')]
+
+crd_data1 <- thing2[,c('PID','VNUM','SEX','RACE_CAT_1',
+                      'DIABETES_AT_BASELINE','AGE_INTEGER','BMI','SMOKENOW',
+                      'EGFR_CRIC','HEMOGLOBIN_A1C','HIBP',
+                      'SA_ALLC_TIME_ESRD','event','DAYS_THISVISIT',"CBCHEMOGLOBIN")]
+
+crd_data$DAYS_THISVISIT <- crd_data$DAYS_THISVISIT/365
+crd_clean <- na.omit(crd_data)
+crd_data1$DAYS_THISVISIT<-crd_data1$DAYS_THISVISIT/365
+crd_clean1 <- na.omit(crd_data1)
+
+crd <- crd_clean[crd_clean$DAYS_THISVISIT<crd_clean$SA_ALLC_TIME_ESRD,]
+rownames(crd)<-NULL
+crd1 <- crd_clean1[crd_clean1$DAYS_THISVISIT<crd_clean1$SA_ALLC_TIME_ESRD,]
+rownames(crd1) <- NULL
+
+
+crd$RACE_CAT_1<-factor(crd$RACE_CAT_1)
+
+crd1$RACE_CAT_1<-factor(crd1$RACE_CAT_1)
+```
+
+## Summary Statistics
+
+You can also embed plots, for example:
+
+```{r}
+
+# Count number of repeated measurements per subject
+library(dplyr)
+
+counts <- crd %>%
+  group_by(PID) %>%
+  summarise(n_obs = n(), .groups = "drop")
+  
+
+hist(counts$n_obs,breaks=seq(0,14,by=1))
+summary(counts$n_obs)
+
+```
+```{r}
+cplot <- hetcor(crd1[,3:15], use = "pairwise.complete.obs")$correlations
+corrplot(cplot)
+
+corrplot(hetcor(crd[,3:15], use = "pairwise.complete.obs")$correlations)
+```
+
+
+```{r}
+library(dplyr)
+
+summary_by_visit <- crd1 %>%
+  group_by(VNUM) %>%                   # group by visit number
+  summarise(
+    n_subjects = n_distinct(PID),         # number of unique subjects at this visit
+    EGFR_mean = mean(EGFR_CRIC, na.rm = TRUE),
+    EGFR_sd   = sd(EGFR_CRIC, na.rm = TRUE),
+    EGFR_median = median(EGFR_CRIC, na.rm = TRUE),
+    EGFR_min = min(EGFR_CRIC, na.rm = TRUE),
+    EGFR_max = max(EGFR_CRIC, na.rm = TRUE),
+    HGB_mean = mean(CBCHEMOGLOBIN, na.rm = TRUE),
+    HGB_sd   = sd(CBCHEMOGLOBIN, na.rm = TRUE),
+    HGB_median = median(CBCHEMOGLOBIN, na.rm = TRUE),
+    HGB_min = min(CBCHEMOGLOBIN, na.rm = TRUE),
+    HGB_max = max(CBCHEMOGLOBIN, na.rm = TRUE),
+    HBA1C_mean = mean(HEMOGLOBIN_A1C, na.rm = TRUE),
+    HBA1C_sd   = sd(HEMOGLOBIN_A1C, na.rm = TRUE),
+    HBA1C_median = median(HEMOGLOBIN_A1C, na.rm = TRUE),
+    HBA1C_min = min(HEMOGLOBIN_A1C, na.rm = TRUE),
+    HBA1C_max = max(HEMOGLOBIN_A1C, na.rm = TRUE),
+    time_mean = mean(SA_ALLC_TIME_ESRD)
+  ) %>%
+  arrange(VNUM)
+
+summary_by_visit
+
+
+```
+```{r}
+allcvd<-all_cvd_events %>%
+  group_by(PID,VNUM) %>%
+  
+  mutate(NUMBER_OF_EVENTS = row_number())
+
+head(allcvd)
+
+
+df_adjusted <- allcvd %>%
+  mutate(VNUM_odd = if_else(VNUM %% 2 == 0, VNUM + 1L, VNUM))
+
+# Step 2: Collapse to unique patient + odd visit and count distinct events
+df_collapsed <- df_adjusted %>%
+  group_by(PID, VNUM_odd) %>%
+  summarise(counts = max(NUMBER_OF_EVENTS), .groups = "drop")
+hist(df_collapsed$counts)
+
+```
+
+```{r}
+# Keep one row per subject (first occurrence, or any — time-to-event is subject-level)
+crd_unique <- crd %>%
+  dplyr::group_by(PID) %>%
+  dplyr::summarise(SA_ALLC_TIME_ESRD = first(SA_ALLC_TIME_ESRD), .groups = "drop")
+hist(crd_unique$SA_ALLC_TIME_ESRD)
+
+summary(crd_unique$SA_ALLC_TIME_ESRD)
+```
+```{r}
+library(dplyr)
+
+crd_filtered <- crd %>%
+  group_by(PID) %>%
+  filter(n_distinct(VNUM) >= 2 & n_distinct(VNUM) <= 11) %>%
+  ungroup()
+
+crd1_filtered <- crd1 %>%
+  group_by(PID) %>%
+  filter(n_distinct(VNUM) >= 2 & n_distinct(VNUM) <= 11) %>%
+  ungroup()
+path <- paste("C:/Users/jgmea/OneDrive/Desktop/datasets/crd_r.csv",sep="")
+write.csv(crd1_filtered,path,row.names = F)
+crd_unique_filtered <- crd_filtered %>%
+  dplyr::group_by(PID) %>%
+  dplyr::summarise(SA_ALLC_TIME_ESRD = first(SA_ALLC_TIME_ESRD), counts = n(), .groups = "drop")
+hist(crd_unique_filtered$SA_ALLC_TIME_ESRD)
+hist(crd_unique_filtered$counts,breaks = seq(0,15,by=1))
+
+summary(crd_unique_filtered$SA_ALLC_TIME_ESRD)
+```
+## preliminary mixed effects fitting
+
+```{r}
+fit1 <- lme(EGFR_CRIC~SEX + RACE_CAT_1+AGE_INTEGER+
+                  BMI+HEMOGLOBIN_A1C+HIBP+DAYS_THISVISIT+
+                  DIABETES_AT_BASELINE,random = ~1|PID,data=crd)
+
+summary(fit1)
+
+crd$marginal_pred <- predict(fit1, level = 0)
+
+# 2. Conditional predictions (includes subject intercepts)
+crd$conditional_pred <- predict(fit1, level = 1)
+
+# 3. Compare observed vs. marginal
+library(ggplot2)
+
+ggplot(crd, aes(x = DAYS_THISVISIT, y = EGFR_CRIC)) +
+  stat_summary(aes(y = EGFR_CRIC, color = "Observed"),fun = mean, geom = "point", color = "black") + # observed means
+  stat_summary(aes(y = marginal_pred, color="Marginal"), fun = mean, geom = "point", shape=15,color = "red") + # marginal
+  stat_summary(aes(y = conditional_pred,color="Conditional"), fun = mean, geom = "point", shape=17,color = "blue") +
+  labs(y = "EGFR", x = "Years", 
+       title = "Observed vs Marginal vs Conditional Predictions",color="Prediction Type") 
+
+
+
+fit2 <- lme(EGFR_CRIC~SEX + RACE_CAT_1+AGE_INTEGER+
+                  BMI+HEMOGLOBIN_A1C+HIBP+DAYS_THISVISIT+
+                  DIABETES_AT_BASELINE,random = ~1|PID,data=crd_filtered)
+
+summary(fit2)
+
+crd_filtered$marginal_pred <- predict(fit2, level = 0)
+
+ 
+crd_filtered$conditional_pred <- predict(fit2, level = 1)
+
+
+
+ggplot(crd_filtered, aes(x = DAYS_THISVISIT, y = EGFR_CRIC)) +
+  stat_summary(aes(y = EGFR_CRIC, color = "Observed"),fun = mean, geom = "point", color = "black") + # observed means
+  stat_summary(aes(y = marginal_pred, color="Marginal"), fun = mean, geom = "point", shape=15,color = "red") + # marginal
+  stat_summary(aes(y = conditional_pred,color="Conditional"), fun = mean, geom = "point", shape=17,color = "blue") +
+  labs(y = "EGFR", x = "Years", 
+       title = "Observed vs Marginal vs Conditional Predictions",color="Prediction Type") 
+
+```
+```{r}
+crd$AGE_z <- scale(crd$AGE_INTEGER);crd$BMI_z <- scale(crd$BMI)
+# fit3 <- glmer(ANYCVD~AGE_z+BMI_z+HEMOGLOBIN_A1C+
+#                DAYS_THISVISIT+(1|PID),data=crd,family=binomial())
+# summary(fit3)
+
+crd_filtered$AGE_z <- scale(crd_filtered$AGE_INTEGER);crd_filtered$BMI_z <- scale(crd_filtered$BMI)
+fit4 <- glmer(ANYCVD~SEX + RACE_CAT_1+AGE_z+BMI_z+HEMOGLOBIN_A1C+HIBP + 
+               DAYS_THISVISIT+(1|PID),data=crd_filtered ,family=binomial())
+summary(fit4)
+# Conditional predictions (subject-specific)
+crd_filtered$pred_conditional <- predict(fit4, type = "response")  # includes random intercepts
+
+# Marginal predictions (population-average, ignore random effects)
+crd_filtered$pred_marginal <- predict(fit4, type = "response", re.form = NA) 
+
+
+# Aggregate by DAYS_THISVISIT
+summary_df <- crd_filtered %>%
+  group_by(DAYS_THISVISIT) %>%
+  summarise(
+    obs_rate = mean(ANYCVD, na.rm = TRUE),
+    marginal = mean(pred_marginal, na.rm = TRUE),
+    conditional = mean(pred_conditional, na.rm = TRUE)
+  )
+
+ggplot(summary_df, aes(x = DAYS_THISVISIT)) +
+  geom_point(aes(y = obs_rate, color = "Observed"), size = 2) +
+  geom_point(aes(y = marginal, color = "Marginal"), shape = 15) +
+  geom_point(aes(y = conditional, color = "Conditional"), shape=17, size = 1) +
+  scale_color_manual(values = c("Observed" = "black",
+                                "Marginal" = "red",
+                                "Conditional" = "blue")) +
+  labs(y = "Probability of ANYCVD",
+       x = "Years since baseline",
+       color = "Type") +
+  theme_minimal()
+```
+
+
+
+```{r}
+fit5 <- lme(CBCHEMOGLOBIN~SEX + RACE_CAT_1+AGE_INTEGER+
+                  BMI+HEMOGLOBIN_A1C+HIBP+DAYS_THISVISIT+
+                  DIABETES_AT_BASELINE,random = ~1|PID,data=crd1_filtered)
+
+summary(fit5)
+# Conditional predictions (includes patient random intercept)
+crd1_filtered$pred_conditional <- predict(fit5, level = 1)
+
+# Marginal predictions (population-average, ignore random intercept)
+crd1_filtered$pred_marginal <- predict(fit5, level = 0)
+
+library(ggplot2)
+
+summary_df <- crd1_filtered %>%
+  group_by(DAYS_THISVISIT) %>%
+  summarise(
+    obs_mean = mean(CBCHEMOGLOBIN, na.rm = TRUE),
+    marginal = mean(pred_marginal, na.rm = TRUE),
+    conditional = mean(pred_conditional, na.rm = TRUE)
+  )
+
+ggplot(summary_df, aes(x = DAYS_THISVISIT)) +
+  geom_point(aes(y = obs_mean, color = "Observed"), size = 2) +
+  geom_point(aes(y = marginal, color = "Marginal"), shape = 15) +
+  geom_point(aes(y = conditional, color = "Conditional"), shape=17, size = 1) +
+  scale_color_manual(values = c("Observed" = "black",
+                                "Marginal" = "red",
+                                "Conditional" = "blue")) +
+  labs(y = "CBC Hemoglobin",
+       x = "Days since baseline",
+       color = "Prediction Type") +
+  theme_minimal()
+
+
+```
+
+### survival submodel
+```{r}
+
+crd_survival <- crd1_filtered[!duplicated(crd1_filtered$PID),]
+
+rownames(crd_survival)<-NULL
+crd_cox<-coxph(Surv(SA_ALLC_TIME_ESRD,event)~as.factor(SEX) + as.factor(RACE_CAT_1)+AGE_INTEGER+
+                 BMI+SMOKENOW+HEMOGLOBIN_A1C+HIBP+
+                 DIABETES_AT_BASELINE,data=crd_survival,x=TRUE)
+
+summary(crd_cox)
+
+```
+
+
+## JMBayes univariate
+```{r}
+unq <- unique(crd1_filtered$PID)
+trsb <- sample(unq, size = 0.7*length(unq))
+
+trd <- crd1_filtered[crd1_filtered$PID %in% trsb, ]
+tsd <- crd1_filtered[!crd1_filtered$PID %in% trsb, ]
+crd_fit <- lme(EGFR_CRIC~SEX + RACE_CAT_1+AGE_INTEGER+
+                  BMI+HEMOGLOBIN_A1C+HIBP+DAYS_THISVISIT+
+                  DIABETES_AT_BASELINE,random = ~1|PID,data=trd) 
+crd_survival <- trd[!duplicated(trd$PID),]
+
+rownames(crd_survival)<-NULL
+crd_cox<-coxph(Surv(SA_ALLC_TIME_ESRD,event)~as.factor(SEX) + as.factor(RACE_CAT_1)+AGE_INTEGER+
+                 BMI+SMOKENOW+HEMOGLOBIN_A1C+HIBP+
+                 DIABETES_AT_BASELINE,data=crd_survival,x=TRUE)
+
+summary(crd_cox)
+
+jmtrd <- jointModelBayes(crd_fit,crd_cox,timeVar = "DAYS_THISVISIT",control=list(n.iter=5000))
+
+lt<-c(3,4,5); pw<-c(1,2)
+
+auc_crd<-matrix(0,nrow=6,ncol=6) 
+
+rc<-1;k<-1
+for (t in 1:3){
+  for (w in 1:2){
+    auc_crd[rc,1]<- 1; auc_crd[rc,2]<-lt[t]
+    auc_crd[rc,3] <- pw[w]
+    auc_res <- tryCatch({
+      aucJM(jmtrd, 
+            newdata = tsd,
+            Tstart = lt[t], 
+            Thoriz = lt[t] + pw[w],idVar = "PID")
+    }, error = function(e) {
+      message("Error in aucJM for k=", k, " t=", lt[t], ": ", e$message)
+      return(list(auc = NA))
+    })
+    auc_crd[rc,4] <- ifelse(is.null(auc_res$auc), NA, auc_res$auc)
+    lt_data <- subset(tsd, SA_ALLC_TIME_ESRD > lt[t] & DAYS_THISVISIT < lt[t])
+    svp <- survfitJM(jmtrd, lt_data,
+                     idVar = "PID", survTimes=lt[t]+pw[w],type="SurvProb",
+                     M=10,last.time=lt[t])
+    prd <- sapply(svp$summaries, function(df) df[,"Mean"])
+    
+    event_lt <- lt_data[!duplicated(lt_data$PID),"event"]
+    time_lt <- lt_data[!duplicated(lt_data$PID),"SA_ALLC_TIME_ESRD"]
+    
+    auc_crd[rc,6]<-tdROC(1-prd, Y=time_lt$SA_ALLC_TIME_ESRD, delta = event_lt$event, tau = lt[t]+pw[w], span = 0.05,
+                              nboot = 0, alpha = 0.05, n.grid = 1000, cut.off = 0.5,type="Epanechnikov")$AUC$value
+    
+    # auc_crd[rc,5] <- Brier(prd,event = event_lt,
+    #                             time = time_lt,event_train = trd$event,
+    #                             time_train = trd$SA_ALLC_TIME_ESRD,LT = lt[t],DeltaT = pw[w])
+  rc<-rc+1
+  }
+  
+}
+
+auc_crd
+
+```
+
+### Cross Validation
+```{r}
+
+
+
+# Unique patient IDs
+pids <- unique(crd1_filtered$PID)
+k <- 5
+folds <- sample(rep(1:k, length.out = length(pids)))
+
+cv_results <- list()
+crd1_filtered$AGE_INTEGER<-scale(crd1_filtered$AGE_INTEGER)
+crd1_filtered$BMI<-scale(crd1_filtered$BMI)
+for(i in 2:k){
+  
+  # Split IDs into train/test
+  test_ids <- pids[folds == i]
+  train_ids <- pids[folds != i]
+  
+  # Training longitudinal data
+  crd_train_long <- crd1_filtered %>% filter(PID %in% train_ids)
+  crd_test_long  <- crd1_filtered %>% filter(PID %in% test_ids)
+  
+  # Training survival data
+  crd_train_surv <- crd_train_long %>% 
+    filter(!duplicated(PID))
+  
+  crd_test_surv <- crd_test_long %>% 
+    filter(!duplicated(PID))
+  
+  # Fit LME on training
+  crd_fit_train <- lme(EGFR_CRIC ~ SEX + as.factor(RACE_CAT_1) + AGE_INTEGER +
+                         BMI + HEMOGLOBIN_A1C + HIBP + DAYS_THISVISIT +
+                         DIABETES_AT_BASELINE,
+                       random = ~1|PID, data = crd_train_long)
+  
+  # Fit Cox on training
+  crd_cox_train <- coxph(Surv(SA_ALLC_TIME_ESRD,event) ~
+                            as.factor(SEX) + as.factor(RACE_CAT_1) + AGE_INTEGER +
+                            BMI + SMOKENOW + HEMOGLOBIN_A1C + HIBP +
+                            DIABETES_AT_BASELINE,
+                          data = crd_train_surv, x = TRUE)
+  
+  # Fit joint model on training
+  jm_train <- jointModelBayes(crd_fit_train, crd_cox_train,
+                              timeVar = "DAYS_THISVISIT",
+                              control = list(n.iter = 2000))  
+  
+  # Predict survival probability at last observed time in test
+  pred_surv <- survfitJM(jm_train, newdata = crd_test_long, 
+                         idVar = "PID", last.time = max(crd_test_long$DAYS_THISVISIT))
+  auc_cv <- matrix(0,nrow=6,ncol=6) 
+  
+  rc<-1
+for (t in 1:3){
+  for (w in 1:2){
+    auc_cv[rc,1]<- 1; auc_cv[rc,2]<-lt[t]
+    auc_cv[rc,3] <- pw[w]
+    auc_res <- tryCatch({
+      aucJM(jm_train, 
+            newdata = crd_test_long,
+            Tstart = lt[t], 
+            Thoriz = lt[t] + pw[w],idVar = "PID")
+    }, error = function(e) {
+      message("Error in aucJM for k=", k, " t=", lt[t], ": ", e$message)
+      return(list(auc = NA))
+    })
+    auc_cv[rc,4] <- ifelse(is.null(auc_res$auc), NA, auc_res$auc)
+    lt_data <- subset(crd_test_long, SA_ALLC_TIME_ESRD > lt[t] & DAYS_THISVISIT < lt[t])
+    svp <- survfitJM(jm_train, lt_data,
+                     idVar = "PID", survTimes=lt[t]+pw[w],type="SurvProb",
+                     M=10,last.time=lt[t])
+    prd <- sapply(svp$summaries, function(df) df[,"Mean"])
+    
+    event_lt <- lt_data[!duplicated(lt_data$PID),"event"]
+    time_lt <- lt_data[!duplicated(lt_data$PID),"SA_ALLC_TIME_ESRD"]
+    
+    auc_cv[rc,6]<-tdROC(1-prd, Y=time_lt$SA_ALLC_TIME_ESRD, delta = event_lt$event, tau = lt[t]+pw[w], span = 0.05,
+                              nboot = 0, alpha = 0.05, n.grid = 1000, cut.off = 0.5,type="Epanechnikov")$AUC$value
+    
+    # auc_crd[rc,5] <- Brier(prd,event = event_lt,
+    #                             time = time_lt,event_train = trd$event,
+    #                             time_train = trd$SA_ALLC_TIME_ESRD,LT = lt[t],DeltaT = pw[w])
+  rc<-rc+1
+  }
+}
+  
+  # Store results
+  cv_results[[i]] <- list(
+    test_ids = test_ids,
+    pred_surv = pred_surv,
+    auc = auc_cv
+  )
+  
+  cat("Fold", i, "done\n")
+}
+
+
+```
+
+### MV JMBAYES
+
+```{r}
+
+aucs_tjm_cv <- cv_results[[1]]$auc[,6]
+
+for (i in 2:5){
+  aucs_tjm_cv <- cbind(aucs_tjm_cv,cv_results[[i]]$auc[,6])
+}
+
+
+apply(aucs_tjm_cv,1,mean);apply(aucs_tjm_cv,1,sd);apply(aucs_tjm_cv,1,quantile,probs=c(0.025,0.975))
+
+```
